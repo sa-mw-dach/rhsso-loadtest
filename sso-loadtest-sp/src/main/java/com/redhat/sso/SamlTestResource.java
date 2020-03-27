@@ -48,8 +48,6 @@ import com.redhat.sso.client.model.AuthnRequestForm;
 import com.redhat.sso.client.model.LoginForm;
 import com.redhat.sso.testdata.UserDataFactory;
 
-import jdk.internal.org.jline.utils.Log;
-
 /**
  * Resource to execute test requests for SAML2.
  * 
@@ -142,7 +140,7 @@ public class SamlTestResource {
 						.map(req -> sendAuthnRequest(req, username))
 						.orElse(Response.status(Status.INTERNAL_SERVER_ERROR).build());
 			} catch (SAXException | IOException | ParserConfigurationException e) {
-				Log.error("Error extracting saml request", e);
+				LOGGER.error("Error extracting saml request", e);
 				return Response.status(Status.INTERNAL_SERVER_ERROR).build();
 			}
 		}).orElseGet(() -> Response.status(Status.INTERNAL_SERVER_ERROR.getStatusCode(), "No test user provided call /api/testdata/loadusers first").build());
