@@ -1,0 +1,29 @@
+<keycloak-saml-adapter 
+xmlns="urn:keycloak:saml:adapter"
+                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                       xsi:schemaLocation="urn:keycloak:saml:adapter https://www.keycloak.org/schema/keycloak_saml_adapter_1_10.xsd"
+>
+    <SP entityID="loadtest-saml"
+        sslPolicy="EXTERNAL"
+        logoutPage="SPECIFY YOUR LOGOUT PAGE!">
+        <IDP entityID="idp">
+            <SingleSignOnService signRequest="false"
+                                 validateResponseSignature="true"
+                                 validateAssertionSignature="false"
+                                 requestBinding="POST"
+                                 bindingUrl="${sso/mp-rest/url}/auth/realms/loadtest/protocol/saml"/>
+            <SingleLogoutService signRequest="false"
+                                 signResponse="false"
+                                 validateRequestSignature="true"
+                                 validateResponseSignature="true"
+                                 requestBinding="POST"
+                                 responseBinding="POST"
+                                 postBindingUrl="${sso/mp-rest/url}/auth/realms/loadtest/protocol/saml"
+                                 redirectBindingUrl="${sso/mp-rest/url}/auth/realms/loadtest/protocol/saml"/>
+            <HttpClient connectionPoolSize="10"
+              disableTrustManager="true"
+              allowAnyHostname="false"
+            />
+        </IDP>
+    </SP>
+</keycloak-saml-adapter>

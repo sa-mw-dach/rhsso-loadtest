@@ -1,0 +1,28 @@
+{
+  "realm" : "loadtest",
+  "resource" : "loadtest-oidc",
+  "auth-server-url" : "${sso/mp-rest/url}/auth",
+  "ssl-required" : "external",
+  "use-resource-role-mappings" : false,
+  "enable-cors" : true,
+  "cors-max-age" : 1000,
+  "cors-allowed-methods" : "POST, PUT, DELETE, GET",
+  "cors-exposed-headers" : "WWW-Authenticate, My-custom-exposed-Header",
+  "bearer-only" : false,
+  "enable-basic-auth" : false,
+  "expose-token" : true,
+  "verify-token-audience" : true,
+   "credentials" : {
+      "secret" : "81031106-7a1e-4958-85ab-067f01c6ceca"
+   },
+
+   "connection-pool-size" : 20,
+   "disable-trust-manager": true,
+   "allow-any-hostname" : false,
+   "token-minimum-time-to-live" : 10,
+   "min-time-between-jwks-requests" : 10,
+   "public-key-cache-ttl": 86400,
+   "redirect-rewrite-rules" : {
+   "^/wsmaster/api/(.*)$" : "/api/$1"
+   }
+}
