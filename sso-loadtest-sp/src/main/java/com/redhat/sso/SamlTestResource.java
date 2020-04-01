@@ -17,12 +17,13 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
+import javax.servlet.ServletContext;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.RedirectionException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -90,8 +91,8 @@ public class SamlTestResource {
 	@GET
 	@Path("/register/client/{token}")
     @Produces(MediaType.TEXT_PLAIN)
-    public String registerClient(@PathParam("token") String initialAccessToken) {
-		InputStream resourceAsStream = SamlTestResource.class.getClassLoader().getResourceAsStream("/META-INF/resources/WEB-INF/client-entity-descriptor.xml");
+    public String registerClient(@PathParam("token") String initialAccessToken, @Context ServletContext ctx) {
+		InputStream resourceAsStream = ctx.getResourceAsStream("WEB-INF/client-entity-descriptor.xml");
 		try(Scanner scanner = new Scanner(resourceAsStream, "UTF-8")) {
 			String samlConfigXml = scanner.useDelimiter("\\A").next();
 			LOGGER.debug("Register saml client with xml config {}", samlConfigXml);

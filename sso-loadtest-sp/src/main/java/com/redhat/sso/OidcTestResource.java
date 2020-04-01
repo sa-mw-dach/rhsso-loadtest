@@ -42,7 +42,7 @@ public class OidcTestResource {
     @Produces(MediaType.TEXT_PLAIN)
     public String registerClient(@Context HttpServletRequest request) {
 		SerializableKeycloakAccount account = (SerializableKeycloakAccount) request.getSession().getAttribute(KeycloakAccount.class.getName());
-		InputStream resourceAsStream = SamlTestResource.class.getClassLoader().getResourceAsStream("/META-INF/resources/WEB-INF/client-oidc-config.json");
+		InputStream resourceAsStream = request.getServletContext().getResourceAsStream("WEB-INF/client-oidc-config.json");
 		try(Scanner scanner = new Scanner(resourceAsStream, "UTF-8")) {
 			String oidcConfigJson = scanner.useDelimiter("\\A").next();
 			LOGGER.debug("Register oidc client with json config {}", oidcConfigJson);
