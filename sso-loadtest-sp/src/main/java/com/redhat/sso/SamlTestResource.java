@@ -87,7 +87,7 @@ public class SamlTestResource {
 	 * @param initialAccessToken Can be obtained from the load-test realm admin console tab client registration.
 	 * @return
 	 */
-	@POST
+	@GET
 	@Path("/register/client/{token}")
     @Produces(MediaType.TEXT_PLAIN)
     public String registerClient(@PathParam("token") String initialAccessToken) {
