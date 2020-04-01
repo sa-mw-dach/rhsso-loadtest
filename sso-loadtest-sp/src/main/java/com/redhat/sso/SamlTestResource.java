@@ -91,7 +91,7 @@ public class SamlTestResource {
 	@Path("/register/client/{token}")
     @Produces(MediaType.TEXT_PLAIN)
     public String registerClient(@PathParam("token") String initialAccessToken) {
-		InputStream resourceAsStream = SamlTestResource.class.getClassLoader().getResourceAsStream("/META-INF/resources/WEB-INF/entity-descriptor.xml");
+		InputStream resourceAsStream = SamlTestResource.class.getClassLoader().getResourceAsStream("/META-INF/resources/WEB-INF/client-entity-descriptor.xml");
 		try(Scanner scanner = new Scanner(resourceAsStream, "UTF-8")) {
 			String samlConfigXml = scanner.useDelimiter("\\A").next();
 			LOGGER.debug("Register saml client with xml config {}", samlConfigXml);
