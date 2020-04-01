@@ -7,13 +7,12 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.keycloak.adapters.servlet.OIDCFilterSessionStore.SerializableKeycloakAccount;
-import org.keycloak.adapters.spi.KeycloakAccount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,15 +37,14 @@ public class OidcTestResource {
 	 * @return
 	 */
 	@GET
-	@Path("/register/client")
+	@Path("/register/client/{token}")
     @Produces(MediaType.TEXT_PLAIN)
-    public String registerClient(@Context HttpServletRequest request) {
-		SerializableKeycloakAccount account = (SerializableKeycloakAccount) request.getSession().getAttribute(KeycloakAccount.class.getName());
+    public String registerClient(@PathParam("token") String initialAccessToken, @Context HttpServletRequest request) {
 		InputStream resourceAsStream = request.getServletContext().getResourceAsStream("WEB-INF/client-oidc-config.json");
 		try(Scanner scanner = new Scanner(resourceAsStream, "UTF-8")) {
 			String oidcConfigJson = scanner.useDelimiter("\\A").next();
 			LOGGER.debug("Register oidc client with json config {}", oidcConfigJson);
-			return oidcResource.registerClient(oidcConfigJson, "bearer " + account.getKeycloakSecurityContext().getTokenString());
+			return oidcResource.registerClient(oidcConfigJson, "bearer " + initialAccessToken);
 		}
 	}
 	

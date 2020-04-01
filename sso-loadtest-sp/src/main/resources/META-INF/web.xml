@@ -24,7 +24,6 @@
 		<url-pattern>/api/oidc/protected</url-pattern>
 		<url-pattern>/keycloak/*</url-pattern>
 		<url-pattern>/api/testdata/*</url-pattern>
-		<url-pattern>/api/oidc/test/register/*</url-pattern>
 	</filter-mapping>
 
 </web-app>
