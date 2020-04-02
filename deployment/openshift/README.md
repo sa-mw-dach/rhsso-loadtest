@@ -1,4 +1,4 @@
-#Installation 
+# Installation 
 
 1. Create a new OpenShift project: `oc new-project $OCP_PROJECT_NAME`
 1. Install RHSSO, e.g. via service catalog or operator
