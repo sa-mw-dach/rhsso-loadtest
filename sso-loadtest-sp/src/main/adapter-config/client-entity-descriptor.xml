@@ -6,7 +6,7 @@
         <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress
         </NameIDFormat>
         <AssertionConsumerService
-                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="http://0.0.0.0:8080/saml"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="${redirectUri}/saml"
                 index="1" isDefault="true" />
     </SPSSODescriptor>
 </EntityDescriptor>

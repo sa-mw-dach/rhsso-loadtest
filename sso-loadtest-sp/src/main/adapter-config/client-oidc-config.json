@@ -1,13 +1,13 @@
 {
 	"id": "2282c79a-8ac7-435a-96b6-abefcc135574",
 	"clientId": "loadtest-oidc",
-	"rootUrl": "http://0.0.0.0:8080/*",
+	"rootUrl": "${redirectUri}",
 	"surrogateAuthRequired": false,
 	"enabled": true,
 	"clientAuthenticatorType": "client-secret",
 	"secret": "81031106-7a1e-4958-85ab-067f01c6ceca",
 	"redirectUris": [
-		"http://0.0.0.0:8080/*"
+		"${redirectUri}/*"
 	],
 	"webOrigins": [],
 	"notBefore": 0,
