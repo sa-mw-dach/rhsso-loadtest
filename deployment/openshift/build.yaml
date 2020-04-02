@@ -1,0 +1,219 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: sso-loadtest-builds
+  annotations:
+    tags: 'loadtest, performancetest, sso, keycloak'
+    description: >-
+      Template for creating all build configs and image streams necessary for load test deployment
+    iconClass: icon-sso
+    openshift.io/display-name: "RHSSO Loadtest Builds"
+    openshift.io/documentation-url: https://github.com/sa-mw-dach/rhsso-loadtest
+message: >-
+  The following build configs have been created in your project:
+  
+objects:  
+  - apiVersion: v1
+    items:
+    - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      name: fortio-build
+    spec:
+      output:
+        to:
+          kind: ImageStreamTag
+          name: fortio:1.3.1
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        dockerfile: "# Build the binaries in larger image\nFROM docker.io/fortio/fortio.build:v13
+          as build\nWORKDIR /go/src/fortio.org\nCOPY . fortio\n# Submodule handling\nRUN
+          make -C fortio submodule\n# We moved a lot of the logic into the Makefile
+          so it can be reused in brew\n# but that also couples the 2, this expects to
+          find binaries in the right place etc\nRUN make -C fortio official-build-version
+          BUILD_DIR=/build OFFICIAL_BIN=../fortio_go_latest.bin\n# Check we still build
+          with go 1.8 (and macos does not break)\nRUN make -C fortio official-build
+          BUILD_DIR=/build OFFICIAL_BIN=../fortio_go1.8.mac GOOS=darwin GO_BIN=/usr/local/go/bin/go\n#
+          Optionally (comment out) Build with 1.8 for perf comparison\n# RUN make -C
+          fortio official-build-version BUILD_DIR= OFFICIAL_BIN=../fortio_go1.8.bin
+          GO_BIN=/usr/local/go/bin/go\n# Just check it stays compiling on Windows (would
+          need to set the rsrcDir too)\nRUN make -C fortio official-build BUILD_DIR=/build
+          OFFICIAL_BIN=../fortio.exe GOOS=windows\n# Minimal image with just the binary
+          and certs\nFROM scratch as release\n# NOTE: the list of files here, if updated,
+          must be changed in release/Dockerfile.in too\nCOPY --from=build /etc/ssl/certs/ca-certificates.crt
+          /etc/ssl/certs/\n# TODO: get rid of *.bak, *~ and other spurious non source
+          files\nCOPY --from=build /go/src/fortio.org/fortio/ui/static /usr/share/fortio/static\nCOPY
+          --from=build /go/src/fortio.org/fortio/ui/templates /usr/share/fortio/templates\n#COPY
+          --from=build /go/src/fortio.org/fortio_go_latest.bin /usr/bin/fortio_go_latest\n#COPY
+          --from=build /go/src/fortio.org/fortio_go1.8.bin /usr/bin/fortio_go1.8\nCOPY
+          --from=build /go/src/fortio.org/fortio_go_latest.bin /usr/bin/fortio\nEXPOSE
+          8079\nEXPOSE 8080\nEXPOSE 8081\nVOLUME /var/lib/fortio\nWORKDIR /var/lib/fortio\nUSER
+          21\nENTRYPOINT [\"/usr/bin/fortio\"]\n# start the server mode (grpc ping on
+          8079, http echo and UI on 8080, redirector on 8081) by default\nCMD [\"server\"]
+          \ "
+        git:
+          ref: v1.3.1
+          uri: https://github.com/fortio/fortio.git
+        type: Git
+      strategy:
+        dockerStrategy: {}
+        type: Docker
+      successfulBuildsHistoryLimit: 5
+      triggers:
+      - type: ConfigChange
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+      labels:
+        app: sso-loadtest-sp
+      name: sso-loadtest-sp-bc-native
+    spec:
+      failedBuildsHistoryLimit: 5
+      output:
+        to:
+          kind: ImageStreamTag
+          name: sso-loadtest-sp:native-latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        configMaps:
+        - configMap:
+            name: sso-loadtest-sp-truststore
+          destinationDir: src/main/resources/truststore.jks
+        contextDir: sso-loadtest-sp
+        git:
+          uri: https://github.com/sa-mw-dach/rhsso-loadtest.git
+        type: Git
+      strategy:
+        sourceStrategy:
+          env:
+          - name: MAVEN_OPTS
+            value: -Djavax.net.ssl.trustStore=/opt/graalvm/jre/lib/security/cacerts
+              -Dsso/mp-rest/url=${CLIENT_ADAPTER_BINDING_URL}
+              -Dsso/mp-rest/trustStore=classpath:/truststore.jks 
+              -Dsso/mp-rest/trustStorePassword=${TRUSTSTORE_PASSWORD}
+          from:
+            kind: ImageStreamTag
+            name: ubi-quarkus-native-s2i:20.0.0-java8
+        type: Source
+      successfulBuildsHistoryLimit: 5
+      triggers:
+      - type: ConfigChange
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+      labels:
+        app: sso-loadtest-sp
+      name: sso-loadtest-sp-bc
+    spec:
+      failedBuildsHistoryLimit: 5
+      output:
+        to:
+          kind: ImageStreamTag
+          name: sso-loadtest-sp:latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        contextDir: sso-loadtest-sp
+        git:
+          uri: https://github.com/sa-mw-dach/rhsso-loadtest.git
+        type: Git
+      strategy:
+        sourceStrategy:
+          env:
+          - name: MAVEN_OPTS
+            value: -Dquarkus.package.uber-jar=true -Dsso/mp-rest/url=${CLIENT_ADAPTER_BINDING_URL} -DredirectUri=${REDIRECT_URI}
+          - name: JAVA_APP_JAR
+            value: sso-loadtest-sp-${LOAD_TEST_SP_VERSION}-runner.jar
+          - name: JAVA_MAIN_CLASS
+            value: io.quarkus.runner.GeneratedMain
+          - name: JAVA_OPTIONS
+            value: -Dsso/mp-rest/url=${REST_CLIENT_BASE_URL}
+              -Dsso/mp-rest/trustStore=file:/etc/java/trust/truststore.jks -Dsso/mp-rest/trustStorePassword=${TRUSTSTORE_PASSWORD}
+          from:
+            kind: ImageStreamTag
+            name: java:8
+            namespace: openshift
+        type: Source
+      successfulBuildsHistoryLimit: 5
+      triggers: []
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      name: fortio
+    spec:
+      lookupPolicy:
+        local: false
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      name: sso-loadtest-sp
+    spec:
+      lookupPolicy:
+        local: false
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: quarkus-quickstart-native
+      name: ubi-quarkus-native-s2i
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+          openshift.io/imported-from: quay.io/quarkus/ubi-quarkus-native-s2i:19.2.1
+        from:
+          kind: DockerImage
+          name: quay.io/quarkus/ubi-quarkus-native-s2i:19.2.1
+        generation: 2
+        importPolicy: {}
+        name: 19.2.1
+        referencePolicy:
+          type: Source
+      - annotations:
+          openshift.io/imported-from: quay.io/quarkus/ubi-quarkus-native-s2i:19.3.1-java8
+        from:
+          kind: DockerImage
+          name: quay.io/quarkus/ubi-quarkus-native-s2i:19.3.1-java8
+        generation: 6
+        importPolicy: {}
+        name: 19.3.1-java8
+        referencePolicy:
+          type: Source
+      - annotations:
+          openshift.io/imported-from: quay.io/quarkus/ubi-quarkus-native-s2i:20.0.0-java8
+        from:
+          kind: DockerImage
+          name: quay.io/quarkus/ubi-quarkus-native-s2i:20.0.0-java8
+        generation: 8
+        importPolicy: {}
+        name: 20.0.0-java8
+        referencePolicy:
+          type: Source
+parameters:
+  - name: TRUSTSTORE_PASSWORD
+    description: "The password for the Java keystore for the trusted certificates"
+    generate: expression
+    from: "[a-zA-Z0-9]{12}"
+    required: true
+  - name: REST_CLIENT_BASE_URL
+    description: "Can be the route url for RHSSO or the local service based url such as https://sso.<namespace>.svc.cluster.local"
+    required: true
+  - name: CLIENT_ADAPTER_BINDING_URL
+    description: "Must be the route url for RHSSO"
+    required: true
+  - name: REDIRECT_URI
+    description: "Must be the route url for the SSO Loadtest Service Provider"
+    required: true
+  - name: LOAD_TEST_SP_VERSION
+    description: "The version of the sso-loadtest-sp"
+    required: true
+    value: 1.0.0-SNAPSHOT

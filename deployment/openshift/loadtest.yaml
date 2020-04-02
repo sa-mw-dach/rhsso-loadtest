@@ -1,0 +1,236 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: sso-loadtest-sp
+  annotations:
+    tags: 'loadtest, performancetest, sso, keycloak'
+    description: >-
+      Template for creating a service provider and fortio as a load testing tool
+    iconClass: icon-sso
+    openshift.io/display-name: "RHSSO Loadtest Service Provider"
+    openshift.io/documentation-url: https://github.com/sa-mw-dach/rhsso-loadtest
+message: >-
+  The following build configs have been created in your project:
+  
+objects:
+  - kind: Deployment
+    apiVersion: apps/v1
+    metadata:
+      annotations:
+      name: fortio
+      labels:
+        app: fortio
+        app.kubernetes.io/component: fortio
+        app.kubernetes.io/instance: fortio
+        app.kubernetes.io/part-of: loadtest
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: fortio
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: fortio
+            deploymentconfig: fortio
+          annotations:
+        spec:
+          volumes:
+            - name: fortio-1
+              emptyDir: {}
+          containers:
+            - name: fortio
+              image: >-
+                image-registry.openshift-image-registry.svc:5000/${IMAGE_SOURCE_NAMESPACE}/fortio:1.3.1
+              ports:
+                - containerPort: 8079
+                  protocol: TCP
+                - containerPort: 8080
+                  protocol: TCP
+                - containerPort: 8081
+                  protocol: TCP
+              resources: {}
+              volumeMounts:
+                - name: fortio-1
+                  mountPath: /var/lib/fortio
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              imagePullPolicy: Always
+          restartPolicy: Always
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}
+          schedulerName: default-scheduler
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 25%
+          maxSurge: 25%
+      revisionHistoryLimit: 10
+      progressDeadlineSeconds: 600
+  - kind: Deployment
+    apiVersion: apps/v1
+    metadata:
+      annotations:
+      name: sso-loadtest-sp
+      labels:
+        app: sso-loadtest-sp
+        app.kubernetes.io/component: sso-loadtest-sp
+        app.kubernetes.io/instance: sso-loadtest-sp
+        app.kubernetes.io/part-of: loadtest
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: sso-loadtest-sp
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: sso-loadtest-sp
+            deploymentconfig: sso-loadtest-sp
+          annotations:
+        spec:
+          volumes:
+            - name: config-volume
+              configMap:
+                name: sso-loadtest-sp-truststore
+                defaultMode: 420
+          containers:
+            - name: sso-loadtest-sp
+              image: >-
+                image-registry.openshift-image-registry.svc:5000/${IMAGE_SOURCE_NAMESPACE}/sso-loadtest-sp:latest
+              ports:
+                - containerPort: 8080
+                  protocol: TCP
+                - containerPort: 8443
+                  protocol: TCP
+                - containerPort: 8778
+                  protocol: TCP
+              resources: {}
+              volumeMounts:
+                - name: config-volume
+                  mountPath: /etc/java/trust/
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              imagePullPolicy: Always
+          restartPolicy: Always
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}
+          schedulerName: default-scheduler
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 25%
+          maxSurge: 25%
+      revisionHistoryLimit: 10
+      progressDeadlineSeconds: 600
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: sso-loadtest-sp
+      labels:
+        app: sso-loadtest-sp
+        app.kubernetes.io/component: sso-loadtest-sp
+        app.kubernetes.io/instance: sso-loadtest-sp
+        app.kubernetes.io/name: ''
+        app.kubernetes.io/part-of: loadtest
+        app.openshift.io/runtime: ''
+      annotations:
+    spec:
+      ports:
+        - name: 8080-tcp
+          protocol: TCP
+          port: 8080
+          targetPort: 8080
+        - name: 8443-tcp
+          protocol: TCP
+          port: 8443
+          targetPort: 8443
+        - name: 8778-tcp
+          protocol: TCP
+          port: 8778
+          targetPort: 8778
+      selector:
+        app: sso-loadtest-sp
+        deploymentconfig: sso-loadtest-sp
+      type: ClusterIP
+      sessionAffinity: None      
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: fortio
+      labels:
+        app: fortio
+        app.kubernetes.io/component: fortio
+        app.kubernetes.io/instance: fortio
+        app.kubernetes.io/name: ''
+        app.kubernetes.io/part-of: loadtest
+        app.openshift.io/runtime: ''
+      annotations:
+    spec:
+      ports:
+        - name: 8079-tcp
+          protocol: TCP
+          port: 8079
+          targetPort: 8079
+        - name: 8080-tcp
+          protocol: TCP
+          port: 8080
+          targetPort: 8080
+        - name: 8081-tcp
+          protocol: TCP
+          port: 8081
+          targetPort: 8081
+      selector:
+        app: fortio
+        deploymentconfig: fortio
+      type: ClusterIP
+      sessionAffinity: None
+  - kind: Route
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: fortio
+      labels:
+        app: fortio
+        app.kubernetes.io/component: fortio
+        app.kubernetes.io/instance: fortio
+        app.kubernetes.io/name: ''
+        app.kubernetes.io/part-of: loadtest
+        app.openshift.io/runtime: ''
+      annotations:
+    spec:
+      path: fortio
+      to:
+        kind: Service
+        name: fortio
+        weight: 100
+      port:
+        targetPort: 8080-tcp
+      wildcardPolicy: None
+  - kind: Route
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: sso-loadtest-sp
+      labels:
+        app: sso-loadtest-sp
+        app.kubernetes.io/component: sso-loadtest-sp
+        app.kubernetes.io/instance: sso-loadtest-sp
+        app.kubernetes.io/name: ''
+        app.kubernetes.io/part-of: loadtest
+        app.openshift.io/runtime: ''
+      annotations:
+    spec:
+      to:
+        kind: Service
+        name: sso-loadtest-sp
+        weight: 100
+      port:
+        targetPort: 8080-tcp
+      wildcardPolicy: None
+parameters:
+  - name: IMAGE_SOURCE_NAMESPACE
+    description: "The namespace RHSSO is installed in."
+    required: true
