@@ -101,8 +101,7 @@ objects:
             name: ubi-quarkus-native-s2i:20.0.0-java8
         type: Source
       successfulBuildsHistoryLimit: 5
-      triggers:
-      - type: ConfigChange
+      triggers: []
   - apiVersion: build.openshift.io/v1
     kind: BuildConfig
     metadata:
@@ -142,7 +141,8 @@ objects:
             namespace: openshift
         type: Source
       successfulBuildsHistoryLimit: 5
-      triggers: []
+      triggers: 
+      - type: ConfigChange
   - apiVersion: image.openshift.io/v1
     kind: ImageStream
     metadata:
