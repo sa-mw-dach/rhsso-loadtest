@@ -62,7 +62,7 @@ public class TestDataResource {
 			//TODO Get User and add to map
 		}
 		LOGGER.debug("success");
-		return "ok";
+		return String.format("Registered %d new users", users);
 	}
 	
 	/**
@@ -78,8 +78,9 @@ public class TestDataResource {
 		SerializableKeycloakAccount account = (SerializableKeycloakAccount) request.getSession().getAttribute(KeycloakAccount.class.getName());
 		String autHeaderValue = "bearer " + account.getKeycloakSecurityContext().getTokenString();
 		userMap = new ArrayList<>(apiResource.getUsers(true, 1000000, autHeaderValue));
-		LOGGER.debug("Loaded {} users", userMap.size());
-		return "ok";
+		int users = userMap.size();
+		LOGGER.debug("Loaded {} users", users);
+		return String.format("Loaded %d users", users);
 	}
 	
 	public Optional<SsoUser> getRandomUser() {
