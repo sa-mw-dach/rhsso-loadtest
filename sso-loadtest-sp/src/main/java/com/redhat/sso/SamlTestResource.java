@@ -13,7 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
@@ -33,6 +35,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jsoup.Jsoup;
 import org.slf4j.Logger;
@@ -64,7 +67,6 @@ public class SamlTestResource {
 	private static final String AUTH_SESSION_ID = "AUTH_SESSION_ID";
 	private static final Logger LOGGER = LoggerFactory.getLogger(SamlTestResource.class);
 	
-	
 	@Inject
     @RestClient
     SamlProtectedService protectedResource;
@@ -82,6 +84,9 @@ public class SamlTestResource {
 	
 	@Inject
 	UserDataFactory factory;
+	
+	@ConfigProperty(name = "saml.test.async")
+	boolean async;
 	
 	/**
 	 * 
@@ -115,10 +120,20 @@ public class SamlTestResource {
     @Produces(MediaType.TEXT_PLAIN)
     public Response request(@PathParam("username") String username) throws SAXException, IOException, ParserConfigurationException {
 		String htmlWithAuthnRequest = protectedResource.hello();
-		LOGGER.debug("AuthnRequest is {}", htmlWithAuthnRequest);
-		return extractSamlRequest(htmlWithAuthnRequest)
-				.map(req -> sendAuthnRequest(req, username))
-				.orElse(Response.status(Status.INTERNAL_SERVER_ERROR).build());
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Sending SAML AuthnRequest");
+			LOGGER.debug("AuthnRequest is {}", htmlWithAuthnRequest);
+		}
+		Response response = extractSamlRequest(htmlWithAuthnRequest)
+			.map(req -> sendAuthnRequest(req, username))
+			.orElseGet(() -> {
+				LOGGER.debug("No users stored please load users first");
+				return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+			});
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("SAML AuthnRequest successful");
+		}
+		return response;
 	}
 	
 	/**
@@ -132,27 +147,43 @@ public class SamlTestResource {
 	@Path("/request")
     @Produces(MediaType.TEXT_PLAIN)
     public Response requestRandomUser() {
-		return testdataResource.getRandomUser().map(user -> {
+		Response response = testdataResource.getRandomUser().map(user -> {
 			String username = user.getUsername();
 			String htmlWithAuthnRequest = protectedResource.hello();
 			LOGGER.debug("AuthnRequest is {}", htmlWithAuthnRequest);
 			try {
 				return extractSamlRequest(htmlWithAuthnRequest)
 						.map(req -> sendAuthnRequest(req, username))
-						.orElse(Response.status(Status.INTERNAL_SERVER_ERROR).build());
+						.orElseGet(() -> {
+							LOGGER.debug("No users stored please load users first");
+							return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+						});
 			} catch (SAXException | IOException | ParserConfigurationException e) {
 				LOGGER.error("Error extracting saml request", e);
 				return Response.status(Status.INTERNAL_SERVER_ERROR).build();
 			}
 		}).orElseGet(() -> Response.status(Status.INTERNAL_SERVER_ERROR.getStatusCode(), "No test user provided call /api/testdata/loadusers first").build());
-		
-		
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("SAML AuthnRequest successful");
+		}
+		return response;
 	}
 	
 	private Response sendAuthnRequest(String samlRequest, String username) {
-		samlResource.sendAuthnRequest(new AuthnRequestForm(samlRequest))
+		CompletionStage<String> completionStage = samlResource.sendAuthnRequest(new AuthnRequestForm(samlRequest))
 			.whenComplete((res, ex) -> whenAuthnRequestResponse(ex, username));
+		waitForCompletionWhenSync(completionStage);
 		return Response.ok("OK").build();
+	}
+
+	private void waitForCompletionWhenSync(CompletionStage<String> completionStage) {
+		if (!async) {
+			try {
+				completionStage.toCompletableFuture().join();
+			} catch (CompletionException e) {
+				// Expected because of redirect (code != 2xx)
+			}
+		}
 	}
 	
 	private void whenAuthnRequestResponse(Throwable e, String username) {
@@ -171,15 +202,19 @@ public class SamlTestResource {
 	}
 	
 	private void requestLoginPage(Map<String, List<String>> query, Cookie authSession, String username) {
-		samlResource.requestLoginPage(query.get(CLIENT_ID).get(0), query.get(TAB_ID).get(0), authSession)
+		LOGGER.debug("Requesting login page");
+		CompletionStage<String> completionStage = samlResource.requestLoginPage(query.get(CLIENT_ID).get(0), query.get(TAB_ID).get(0), authSession)
 			.whenComplete((resp, ex) -> whenLoginPageResponse(resp, ex, authSession, username));
+		waitForCompletionWhenSync(completionStage);
 	}
 	
 	private void whenLoginPageResponse(String response, Throwable e, Cookie authSession, String username) {
 		if (e == null) {
+			LOGGER.debug("Login page response received");
 			org.jsoup.nodes.Document loginForm = Jsoup.parse(new String(response.getBytes()));
 			try {
 				URI location = new URI(loginForm.getElementsByTag("FORM").attr("ACTION"));
+				LOGGER.debug("Submitting form");
 				sendLoginRequest(getQueryMap(location), authSession, username);
 			} catch (URISyntaxException e1) {
 				LOGGER.error("Error parsing URI from form action", e1);
@@ -190,14 +225,17 @@ public class SamlTestResource {
 	}
 	
 	private void sendLoginRequest(Map<String, List<String>> query2, Cookie authSession, String username) {
-		samlResource.sendLoginRequest(query2.get(CLIENT_ID).get(0), query2.get(TAB_ID).get(0),
+		CompletionStage<String> completionStage = samlResource.sendLoginRequest(query2.get(CLIENT_ID).get(0), query2.get(TAB_ID).get(0),
 				query2.get(SESSION_CODE).get(0), query2.get(EXECUTION).get(0), authSession,
 				new LoginForm(username, factory.derivePasswordFromUsername(username))).whenComplete(this::whenLoginResponse);
+		waitForCompletionWhenSync(completionStage);
 	}
 	
 	private void whenLoginResponse(String response, Throwable e) {
 		if (e != null) {
 			LOGGER.error("Login error", e);
+		} else {
+			LOGGER.debug("Login successful");
 		}
 	}
 	
