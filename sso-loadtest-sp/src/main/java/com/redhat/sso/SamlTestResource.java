@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -36,6 +35,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.metrics.MetricUnits;
+import org.eclipse.microprofile.metrics.annotation.Counted;
+import org.eclipse.microprofile.metrics.annotation.Gauge;
+import org.eclipse.microprofile.metrics.annotation.Timed;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jsoup.Jsoup;
 import org.slf4j.Logger;
@@ -50,6 +53,7 @@ import com.redhat.sso.client.SsoApiService;
 import com.redhat.sso.client.SsoSamlService;
 import com.redhat.sso.client.model.AuthnRequestForm;
 import com.redhat.sso.client.model.LoginForm;
+import com.redhat.sso.metrics.SSOMetrics;
 import com.redhat.sso.testdata.UserDataFactory;
 
 /**
@@ -66,6 +70,7 @@ public class SamlTestResource {
 	private static final String CLIENT_ID = "client_id";
 	private static final String AUTH_SESSION_ID = "AUTH_SESSION_ID";
 	private static final Logger LOGGER = LoggerFactory.getLogger(SamlTestResource.class);
+	private SSOMetrics metrics = new SSOMetrics();
 	
 	@Inject
     @RestClient
@@ -116,6 +121,8 @@ public class SamlTestResource {
 	 * @throws ParserConfigurationException
 	 */
 	@GET
+	@Counted(name = "test.saml.authn.count", description = "How many SAML authentications have been started.", reusable = true)
+	@Timed(name = "test.saml.authn.time", description = "A measure of how long it takes to perform the SAML authentication.", unit = MetricUnits.MILLISECONDS, reusable = true)
 	@Path("/request/{username}")
     @Produces(MediaType.TEXT_PLAIN)
     public Response request(@PathParam("username") String username) throws SAXException, IOException, ParserConfigurationException {
@@ -144,6 +151,8 @@ public class SamlTestResource {
 	 * @throws ParserConfigurationException
 	 */
 	@GET
+	@Counted(name = "test.saml.authn.count", description = "How many SAML authentications have been started.", reusable = true)
+	@Timed(name = "test.saml.authn.time", description = "A measure of how long it takes to perform the SAML authentication.", unit = MetricUnits.MILLISECONDS, reusable = true)
 	@Path("/request")
     @Produces(MediaType.TEXT_PLAIN)
     public Response requestRandomUser() {
@@ -195,9 +204,11 @@ public class SamlTestResource {
 				requestLoginPage(getQueryMap(location), redirectEx.getResponse().getCookies().get(AUTH_SESSION_ID).toCookie(), username);
 			} else {
 				LOGGER.error("Expected redirect but was error", e.getCause());
+				metrics.incrementLoginErrorCount();
 			}
 		} else {
 			LOGGER.error("Expected redirect but was 2xx response");
+			metrics.incrementLoginErrorCount();
 		}
 	}
 	
@@ -218,9 +229,11 @@ public class SamlTestResource {
 				sendLoginRequest(getQueryMap(location), authSession, username);
 			} catch (URISyntaxException e1) {
 				LOGGER.error("Error parsing URI from form action", e1);
+				metrics.incrementLoginErrorCount();
 			}
 		} else {
 			LOGGER.error("Login page request error", e);
+			metrics.incrementLoginErrorCount();
 		}
 	}
 	
@@ -234,8 +247,10 @@ public class SamlTestResource {
 	private void whenLoginResponse(String response, Throwable e) {
 		if (e != null) {
 			LOGGER.error("Login error", e);
+			metrics.incrementLoginErrorCount();
 		} else {
 			LOGGER.debug("Login successful");
+			metrics.incrementLoginSuccessCount();
 		}
 	}
 	
@@ -265,5 +280,15 @@ public class SamlTestResource {
 		}
 		return Optional.empty();
 	}
+	
+	@Gauge(name = "test.saml.authn.login_sucess.count", unit = MetricUnits.NONE, description = "Number of successful SAML logins")
+    public int loginSuccessCount() {
+        return metrics.getLoginSuccessCount();
+    }
+	
+	@Gauge(name = "test.saml.authn.login_error.count", unit = MetricUnits.NONE, description = "Number of SAML errors")
+    public int loginErrorCount() {
+        return metrics.getLoginErrorCount();
+    }
 	
 }

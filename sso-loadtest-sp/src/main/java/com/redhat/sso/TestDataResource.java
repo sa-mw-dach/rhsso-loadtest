@@ -14,6 +14,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.eclipse.microprofile.metrics.MetricUnits;
+import org.eclipse.microprofile.metrics.annotation.Gauge;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.keycloak.adapters.servlet.OIDCFilterSessionStore.SerializableKeycloakAccount;
 import org.keycloak.adapters.spi.KeycloakAccount;
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import com.redhat.sso.client.SsoApiService;
 import com.redhat.sso.client.model.SsoUser;
+import com.redhat.sso.metrics.TestDataMetrics;
 import com.redhat.sso.testdata.UserDataFactory;
 
 @Path("/api/testdata")
@@ -30,7 +33,7 @@ public class TestDataResource {
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestDataResource.class);
 	private List<SsoUser> userMap = new ArrayList<>();
 	private Random random = new Random();
-	
+	private TestDataMetrics metrics = new TestDataMetrics();
 	
 	@Inject
     @RestClient
@@ -38,8 +41,6 @@ public class TestDataResource {
 	
 	@Inject
 	UserDataFactory factory;
-	
-	
 	
 	/**
 	 * 
@@ -80,6 +81,7 @@ public class TestDataResource {
 		userMap = new ArrayList<>(apiResource.getUsers(true, 1000000, autHeaderValue));
 		int users = userMap.size();
 		LOGGER.debug("Loaded {} users", users);
+		metrics.setUserCount(users);
 		return String.format("Loaded %d users", users);
 	}
 	
@@ -91,5 +93,10 @@ public class TestDataResource {
 		}
 		
 	}
+	
+	@Gauge(name = "test.data.user.count", unit = MetricUnits.NONE, description = "Number of successful SAML logins")
+    public int userCount() {
+        return metrics.getUserCount();
+    }
 	
 }
