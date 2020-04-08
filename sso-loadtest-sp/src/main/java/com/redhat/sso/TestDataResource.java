@@ -17,6 +17,8 @@ import javax.ws.rs.core.MediaType;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.keycloak.adapters.servlet.OIDCFilterSessionStore.SerializableKeycloakAccount;
 import org.keycloak.adapters.spi.KeycloakAccount;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.redhat.sso.client.SsoApiService;
 import com.redhat.sso.client.model.SsoUser;
@@ -25,6 +27,7 @@ import com.redhat.sso.testdata.UserDataFactory;
 @Path("/api/testdata")
 public class TestDataResource {
 	
+	private static final Logger LOGGER = LoggerFactory.getLogger(TestDataResource.class);
 	private List<SsoUser> userMap = new ArrayList<>();
 	private Random random = new Random();
 	
@@ -47,12 +50,18 @@ public class TestDataResource {
 	@Path("/users/{users}")
     @Produces(MediaType.TEXT_PLAIN)
     public String registerUsers(@PathParam("users") Long users, @Context HttpServletRequest request) {
+		LOGGER.debug("Registering {} new users", users);
 		SerializableKeycloakAccount account = (SerializableKeycloakAccount) request.getSession().getAttribute(KeycloakAccount.class.getName());
 		String autHeaderValue = "bearer " + account.getKeycloakSecurityContext().getTokenString();
 		for (int i = 0; i < users; i++) {
-			apiResource.createUser(factory.newUser(), autHeaderValue);
+			SsoUser newUser = factory.newUser();
+			apiResource.createUser(newUser, autHeaderValue);
+			if(LOGGER.isDebugEnabled()) {
+				LOGGER.debug("{}: New user '{}' registered", i + 1, newUser.getUsername());
+			}
 			//TODO Get User and add to map
 		}
+		LOGGER.debug("success");
 		return "ok";
 	}
 	
@@ -65,9 +74,11 @@ public class TestDataResource {
 	@Path("/loadusers")
     @Produces(MediaType.TEXT_PLAIN)
     public String loadUsers(@Context HttpServletRequest request) {
+		LOGGER.debug("Loading users");
 		SerializableKeycloakAccount account = (SerializableKeycloakAccount) request.getSession().getAttribute(KeycloakAccount.class.getName());
 		String autHeaderValue = "bearer " + account.getKeycloakSecurityContext().getTokenString();
 		userMap = new ArrayList<>(apiResource.getUsers(true, 1000000, autHeaderValue));
+		LOGGER.debug("Loaded {} users", userMap.size());
 		return "ok";
 	}
 	
