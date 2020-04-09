@@ -115,6 +115,20 @@ objects:
               terminationMessagePath: /dev/termination-log
               terminationMessagePolicy: File
               imagePullPolicy: Always
+              livenessProbe:
+                httpGet:
+                  path: /health/live
+                  port: 8080
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                timeoutSeconds: 3
+              readinessProbe:
+                httpGet:
+                  path: /health/ready
+                  port: 8080
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                timeoutSeconds: 3
           restartPolicy: Always
           terminationGracePeriodSeconds: 30
           dnsPolicy: ClusterFirst
