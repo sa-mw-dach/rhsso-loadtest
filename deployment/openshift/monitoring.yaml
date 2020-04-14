@@ -59,7 +59,7 @@ objects:
     spec:
       endpoints:
         - interval: 30s
-          path: /metrics/application
+          path: /metrics
           port: 8080-tcp
           scheme: http
       namespaceSelector:
