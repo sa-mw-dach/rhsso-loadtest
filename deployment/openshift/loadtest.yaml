@@ -108,7 +108,10 @@ objects:
                   protocol: TCP
                 - containerPort: 8778
                   protocol: TCP
-              resources: {}
+              resources:
+                requests:
+                  cpu: '2'
+                  memory: 740Mi
               volumeMounts:
                 - name: config-volume
                   mountPath: /etc/java/trust/
