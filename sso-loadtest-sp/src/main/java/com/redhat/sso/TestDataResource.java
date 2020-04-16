@@ -84,7 +84,7 @@ public class TestDataResource {
 						return Optional.empty();
 					}
 				}));
-		if (tokenResponse.isEmpty()) {
+		if (tokenResponse.isPresent()) {
 			LOGGER.warn("For automated user loading you must provide sso.service.username and sso.service.password.");
 		}
 		return tokenResponse;
