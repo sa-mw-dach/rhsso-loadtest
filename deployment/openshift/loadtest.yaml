@@ -101,6 +101,13 @@ objects:
             - name: sso-loadtest-sp
               image: >-
                 image-registry.openshift-image-registry.svc:5000/${IMAGE_SOURCE_NAMESPACE}/sso-loadtest-sp:latest
+              env:
+                - name: quarkus.log.level
+                  value: WARN
+                - name: sso.service.username
+                  value: ${SSO_SERVICE_USERNAME}
+                - name: sso.service.password
+                  value: ${SSO_SERVICE_PASSWORD}
               ports:
                 - containerPort: 8080
                   protocol: TCP
@@ -251,3 +258,9 @@ parameters:
   - name: IMAGE_SOURCE_NAMESPACE
     description: "The namespace RHSSO is installed in."
     required: true
+  - name: SSO_SERVICE_USERNAME
+    description: "The username of the service user of the loadtest realm."
+    required: false
+  - name: SSO_SERVICE_PASSWORD
+    description: "The password of the service user of the loadtest realm."
+    required: false
