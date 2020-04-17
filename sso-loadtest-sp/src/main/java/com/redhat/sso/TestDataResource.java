@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.stream.IntStream;
 
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
@@ -24,8 +25,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.metrics.MetricUnits;
 import org.eclipse.microprofile.metrics.annotation.Gauge;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.resteasy.annotations.SseElementType;
 import org.keycloak.adapters.KeycloakDeployment;
 import org.keycloak.adapters.KeycloakDeploymentBuilder;
+import org.keycloak.adapters.servlet.KeycloakOIDCFilter;
 import org.keycloak.adapters.servlet.OIDCFilterSessionStore.SerializableKeycloakAccount;
 import org.keycloak.adapters.spi.KeycloakAccount;
 import org.slf4j.Logger;
@@ -40,6 +43,7 @@ import com.redhat.sso.metrics.TestDataMetrics;
 import com.redhat.sso.testdata.UserDataFactory;
 
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.mutiny.Multi;
 
 @Path("/api/testdata")
 public class TestDataResource {
@@ -85,7 +89,9 @@ public class TestDataResource {
 					}
 				}));
 		if (!tokenResponse.isPresent()) {
-			LOGGER.warn("For automated user loading you must provide sso.service.username and sso.service.password.");
+			LOGGER.warn("For API access with service account you must provide sso.service.username and sso.service.password.");
+		} else {
+			LOGGER.debug("Token received");
 		}
 		return tokenResponse;
 	}
@@ -115,8 +121,35 @@ public class TestDataResource {
         	  return KeycloakDeploymentBuilder.build(is);
         }
     }
-
 	
+	/**
+	 * Reactive / async is not supported by {@link KeycloakOIDCFilter}, hence this method uses the service account.
+	 * @param users
+	 * @param request
+	 * @return
+	 * @throws IOException 
+	 */
+	@GET
+	@Produces(MediaType.SERVER_SENT_EVENTS)
+	@SseElementType(MediaType.TEXT_PLAIN)
+	@Path("/reactive/users/{users}")
+	public  Multi<String> registerUsersReactive(@PathParam("users") Integer users, @Context ServletContext ctx) throws IOException {
+		LOGGER.debug("Registering {} new users", users);
+		Optional<TokenResponse> tokenResponse = obtainAccessTokenWithServiceAccount(ctx);
+		return tokenResponse.map(resp -> 
+			Multi.createFrom().items(IntStream.range(0, users).mapToObj(i -> {
+				SsoUser newUser = factory.newUser();
+				apiResource.createUser(newUser, "bearer " + resp.getAccessToken()).toCompletableFuture();
+				if(LOGGER.isDebugEnabled()) {
+					LOGGER.debug("{}: New user '{}' registered", i + 1, newUser.getUsername());
+				}
+				return String.format("%d - %s", i + 1, newUser.getUsername());
+			})).onItem().apply(s -> s)
+		).orElseGet(() -> { 
+			LOGGER.error("Could not obtain access token");
+			return null;
+		});
+	}
 	
 	/**
 	 * 
@@ -126,7 +159,7 @@ public class TestDataResource {
 	@GET
 	@Path("/users/{users}")
     @Produces(MediaType.TEXT_PLAIN)
-    public String registerUsers(@PathParam("users") Long users, @Context HttpServletRequest request) {
+    public String registerUsers(@PathParam("users") Integer users, @Context HttpServletRequest request) {
 		LOGGER.debug("Registering {} new users", users);
 		SerializableKeycloakAccount account = (SerializableKeycloakAccount) request.getSession().getAttribute(KeycloakAccount.class.getName());
 		String autHeaderValue = "bearer " + account.getKeycloakSecurityContext().getTokenString();

@@ -23,7 +23,8 @@
 		<filter-name>Keycloak OIDC Filter</filter-name>
 		<url-pattern>/api/oidc/protected</url-pattern>
 		<url-pattern>/keycloak/*</url-pattern>
-		<url-pattern>/api/testdata/*</url-pattern>
+		<url-pattern>/api/testdata/users/*</url-pattern>
+		<url-pattern>/api/testdata/loadusers/*</url-pattern>
 	</filter-mapping>
 
 </web-app>

@@ -1,6 +1,7 @@
 package com.redhat.sso.client;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -23,7 +24,7 @@ public interface SsoApiService {
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("/users")
-	String createUser(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
+	CompletionStage<String> createUser(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
 
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
