@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import com.redhat.sso.client.SsoApiService;
 import com.redhat.sso.client.SsoOidcService;
 import com.redhat.sso.client.model.RequestTokenForm;
+import com.redhat.sso.client.model.SsoInitialAccessTokenCreate;
 import com.redhat.sso.client.model.SsoUser;
 import com.redhat.sso.client.model.TokenResponse;
 import com.redhat.sso.metrics.TestDataMetrics;
@@ -57,6 +58,8 @@ public class TestDataResource {
 	Optional<String> username;
 	@ConfigProperty(name = "sso.service.password")
 	Optional<String> password;
+	@ConfigProperty(name = "sso.loadusers.onstartup")
+	Optional<Boolean> loadUsersOnStartup;
 	
 	@Inject
     @RestClient
@@ -68,21 +71,21 @@ public class TestDataResource {
 	@Inject
 	UserDataFactory factory;
 	
-	void onStart(@Observes StartupEvent ev, @Context ServletContext ctx) throws IOException {
-		LOGGER.info("Loading users if service account data is provided...");
-		Optional<TokenResponse> tokenResponse = obtainAccessTokenWithServiceAccount(ctx);
-		tokenResponse.ifPresent(resp -> loadUsers(resp.getAccessToken()));
+	void onStart(@Observes StartupEvent ev) throws IOException {
+		if (loadUsersOnStartup.map(b -> b).orElse(true)) {
+			LOGGER.info("Loading users if service account data is provided...");
+			Optional<TokenResponse> tokenResponse = obtainAccessTokenWithServiceAccount();
+			tokenResponse.ifPresent(resp -> loadUsers(resp.getAccessToken()));
+		}
 	}
 
 
-	private Optional<TokenResponse> obtainAccessTokenWithServiceAccount(ServletContext ctx) throws IOException {
-		KeycloakDeployment keycloakDeployment = loadKeycloakJson(ctx);
+	Optional<TokenResponse> obtainAccessTokenWithServiceAccount() throws IOException {
 		Optional<TokenResponse> tokenResponse = username.flatMap(
 				usr -> password.flatMap(pw -> 
 				{
 					try {
-						return Optional.of(oidcResource.obtainAccessToken(new RequestTokenForm(keycloakDeployment.getResourceName(),
-								(String) keycloakDeployment.getResourceCredentials().get("secret"), usr, pw, "password")));
+						return Optional.of(oidcResource.obtainAccessToken(new RequestTokenForm("admin-cli", "", usr, pw, "password")));
 					} catch (WebApplicationException e) {
 						logWebApplicationException(e);
 						return Optional.empty();
@@ -115,11 +118,23 @@ public class TestDataResource {
 	}
 		
 	
-	private KeycloakDeployment loadKeycloakJson(ServletContext ctx) throws IOException {
-		String path = "/WEB-INF/keycloak.json";
-        try(InputStream is = ctx.getResourceAsStream(path)) {
-        	  return KeycloakDeploymentBuilder.build(is);
-        }
+	@SuppressWarnings("unchecked")
+	Optional<KeycloakDeployment> loadKeycloakJson(Optional<ServletContext> optCtx) {
+		return (Optional<KeycloakDeployment>) optCtx.map(ctx -> {
+			try(InputStream is = ctx.getResourceAsStream("/WEB-INF/keycloak.json")) {
+	      	  return Optional.of(KeycloakDeploymentBuilder.build(is));
+			} catch(IOException e) {
+				LOGGER.error("Error loading deployment via servlet context", e);
+				return Optional.empty();
+			}
+		}).orElseGet(() -> {
+			try(InputStream is = TestDataResource.class.getClassLoader().getResourceAsStream("/META-INF/resources/WEB-INF/keycloak.json")) {
+	      	  return Optional.of(KeycloakDeploymentBuilder.build(is));
+			} catch(IOException e) {
+				LOGGER.error("Error loading deployment via classpath", e);
+				return Optional.empty();
+			}
+		});
     }
 	
 	/**
@@ -133,9 +148,9 @@ public class TestDataResource {
 	@Produces(MediaType.SERVER_SENT_EVENTS)
 	@SseElementType(MediaType.TEXT_PLAIN)
 	@Path("/reactive/users/{users}")
-	public  Multi<String> registerUsersReactive(@PathParam("users") Integer users, @Context ServletContext ctx) throws IOException {
+	public  Multi<String> registerUsersReactive(@PathParam("users") Integer users) throws IOException {
 		LOGGER.debug("Registering {} new users", users);
-		Optional<TokenResponse> tokenResponse = obtainAccessTokenWithServiceAccount(ctx);
+		Optional<TokenResponse> tokenResponse = obtainAccessTokenWithServiceAccount();
 		return tokenResponse.map(resp -> 
 			Multi.createFrom().items(IntStream.range(0, users).mapToObj(i -> {
 				SsoUser newUser = factory.newUser();
@@ -147,6 +162,20 @@ public class TestDataResource {
 			})).onItem().apply(s -> s)
 		).orElseGet(() -> { 
 			LOGGER.error("Could not obtain access token");
+			return null;
+		});
+	}
+	
+	@GET
+	@Produces(MediaType.TEXT_PLAIN)
+	@Path("/initalaccesstoken")
+	public String createInitialAccessToken() throws IOException {
+		LOGGER.debug("Creating initial access token");
+		Optional<TokenResponse> tokenResponse = obtainAccessTokenWithServiceAccount();
+		return tokenResponse.map(resp -> 
+			apiResource.createInitialAccessToken(new SsoInitialAccessTokenCreate(), "bearer " + resp.getAccessToken()).getToken()
+		).orElseGet(() -> { 
+			LOGGER.error("Could not create initial access token");
 			return null;
 		});
 	}
@@ -190,7 +219,7 @@ public class TestDataResource {
 	}
 
 
-	private String loadUsers(String accessTokenString) {
+	String loadUsers(String accessTokenString) {
 		String autHeaderValue = "bearer " + accessTokenString;
 		userMap = new ArrayList<>(apiResource.getUsers(true, 1000000, autHeaderValue));
 		int users = userMap.size();
@@ -200,8 +229,8 @@ public class TestDataResource {
 	}
 	
 	public Optional<SsoUser> getRandomUser() {
-		if (userMap.size() - 1 >= 0) {
-			return Optional.of(userMap.get(random.nextInt(userMap.size() - 1)));
+		if (!userMap.isEmpty()) {
+			return Optional.of(userMap.get(random.nextInt(userMap.size())));
 		} else {
 			return Optional.empty();
 		}

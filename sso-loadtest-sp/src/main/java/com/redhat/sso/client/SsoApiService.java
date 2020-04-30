@@ -14,6 +14,8 @@ import javax.ws.rs.core.MediaType;
 
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
+import com.redhat.sso.client.model.SsoInitialAccessToken;
+import com.redhat.sso.client.model.SsoInitialAccessTokenCreate;
 import com.redhat.sso.client.model.SsoUser;
 
 @Path("/auth/admin/realms/loadtest")
@@ -30,4 +32,10 @@ public interface SsoApiService {
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("/users")
 	List<SsoUser> getUsers(@QueryParam("briefRepresentation") boolean briefRepresentation, @QueryParam("max") long maxResults, @HeaderParam("Authorization") String authorizationHeader);
+
+	@POST
+	@Produces(MediaType.APPLICATION_JSON)
+	@Path("/clients-initial-access")
+	SsoInitialAccessToken createInitialAccessToken(SsoInitialAccessTokenCreate config, @HeaderParam("Authorization") String authorizationHeader);
+
 }
