@@ -2,7 +2,7 @@
 
 1. Create a new OpenShift project: `oc new-project $OCP_PROJECT_NAME`
 1. Install RHSSO, e.g. via service catalog or operator
-1. Install the Prometheus metrics spi and prepare the service (name port to web to be scraped by service monitor): `sh install_metrics_spi.sh`
+1. Install the Prometheus metrics spi and prepare the service (name port to web to be scraped by service monitor): `sh install-metrics-spi.sh`
 1. Create realm called loadtest
 1. In Events -> Config add metrics-listener to Event Listeners and turn on login events.
 1. Create first user with credentials $USER and assign admin right in realm loadtest
