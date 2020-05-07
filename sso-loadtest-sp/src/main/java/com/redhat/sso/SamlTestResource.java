@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,11 +25,13 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.RedirectionException;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.Response.Status.Family;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -190,7 +193,13 @@ public class SamlTestResource {
 			try {
 				completionStage.toCompletableFuture().join();
 			} catch (CompletionException e) {
-				// Expected because of redirect (code != 2xx)
+				if (e.getCause() instanceof WebApplicationException) {
+					WebApplicationException we = ((WebApplicationException) e.getCause());
+					Family statusFamily = we.getResponse().getStatusInfo().toEnum().getFamily();
+					if (statusFamily == Family.CLIENT_ERROR || statusFamily == Family.SERVER_ERROR) {
+						throw new RuntimeException(we.getResponse().readEntity(String.class), e.getCause());
+					}
+				}
 			}
 		}
 	}
@@ -202,6 +211,14 @@ public class SamlTestResource {
 				URI location = redirectEx.getResponse().getLocation();
 				LOGGER.debug("Redirecting to {}", location);
 				requestLoginPage(getQueryMap(location), redirectEx.getResponse().getCookies().get(AUTH_SESSION_ID).toCookie(), username);
+			} else if (e.getCause() instanceof WebApplicationException) {
+				WebApplicationException we = (WebApplicationException) e;
+				String responseTxt = "";
+				if (we.getResponse().hasEntity()) {
+					responseTxt = we.getResponse().readEntity(String.class);
+				}
+				LOGGER.error("Expected redirect but was error", e.getCause() + "," + responseTxt);
+				metrics.incrementLoginErrorCount();
 			} else {
 				LOGGER.error("Expected redirect but was error", e.getCause());
 				metrics.incrementLoginErrorCount();
@@ -275,7 +292,11 @@ public class SamlTestResource {
 		for (int i = 0; i < inputs.getLength(); i++) {
 			Node input = inputs.item(i);
 			if (input.getAttributes().getNamedItem("NAME") != null && input.getAttributes().getNamedItem("NAME").getFirstChild().getNodeValue().equals("SAMLRequest")) {
-				return Optional.ofNullable(input.getAttributes().getNamedItem("VALUE").getFirstChild().getNodeValue());
+				String value = input.getAttributes().getNamedItem("VALUE").getFirstChild().getNodeValue();
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(new String(Base64.getDecoder().decode(value)));
+				}
+				return Optional.ofNullable(value);
 			}
 		}
 		return Optional.empty();

@@ -49,6 +49,7 @@ import io.smallrye.mutiny.Multi;
 @Path("/api/testdata")
 public class TestDataResource {
 	
+	private static final String GRANT_TYPE = "password";
 	private static final Logger LOGGER = LoggerFactory.getLogger(TestDataResource.class);
 	private List<SsoUser> userMap = new ArrayList<>();
 	private Random random = new Random();
@@ -85,7 +86,7 @@ public class TestDataResource {
 				usr -> password.flatMap(pw -> 
 				{
 					try {
-						return Optional.of(oidcResource.obtainAccessToken(new RequestTokenForm("admin-cli", "", usr, pw, "password")));
+						return Optional.of(oidcResource.obtainAccessToken(new RequestTokenForm("admin-cli", "", usr, pw, GRANT_TYPE)));
 					} catch (WebApplicationException e) {
 						logWebApplicationException(e);
 						return Optional.empty();
