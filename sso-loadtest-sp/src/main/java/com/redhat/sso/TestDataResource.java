@@ -155,7 +155,9 @@ public class TestDataResource {
 		return tokenResponse.map(resp -> 
 			Multi.createFrom().items(IntStream.range(0, users).mapToObj(i -> {
 				SsoUser newUser = factory.newUser();
-				apiResource.createUser(newUser, "bearer " + resp.getAccessToken()).toCompletableFuture();
+				apiResource.createUser(newUser, "bearer " + resp.getAccessToken());
+				userMap.add(newUser);
+				refreshUserCountMetrics();
 				if(LOGGER.isDebugEnabled()) {
 					LOGGER.debug("{}: New user '{}' registered", i + 1, newUser.getUsername());
 				}
@@ -196,10 +198,11 @@ public class TestDataResource {
 		for (int i = 0; i < users; i++) {
 			SsoUser newUser = factory.newUser();
 			apiResource.createUser(newUser, autHeaderValue);
+			userMap.add(newUser);
+			refreshUserCountMetrics();
 			if(LOGGER.isDebugEnabled()) {
 				LOGGER.debug("{}: New user '{}' registered", i + 1, newUser.getUsername());
 			}
-			//TODO Get User and add to map
 		}
 		LOGGER.debug("success");
 		return String.format("Registered %d new users", users);
@@ -223,10 +226,16 @@ public class TestDataResource {
 	String loadUsers(String accessTokenString) {
 		String autHeaderValue = "bearer " + accessTokenString;
 		userMap = new ArrayList<>(apiResource.getUsers(true, 1000000, autHeaderValue));
-		int users = userMap.size();
+		int users = refreshUserCountMetrics();
 		LOGGER.debug("Loaded {} users", users);
-		metrics.setUserCount(users);
 		return String.format("Loaded %d users", users);
+	}
+
+
+	private int refreshUserCountMetrics() {
+		int users = userMap.size();
+		metrics.setUserCount(users);
+		return users;
 	}
 	
 	public Optional<SsoUser> getRandomUser() {

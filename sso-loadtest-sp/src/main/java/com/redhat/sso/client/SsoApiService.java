@@ -26,7 +26,13 @@ public interface SsoApiService {
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("/users")
-	CompletionStage<String> createUser(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
+	CompletionStage<String> createUserAsync(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
+	
+	@POST
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	@Path("/users")
+	String createUser(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
 
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)

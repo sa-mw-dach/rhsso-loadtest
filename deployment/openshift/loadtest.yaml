@@ -118,7 +118,7 @@ objects:
               resources:
                 requests:
                   cpu: '2'
-                  memory: 740Mi
+                  memory: 1Gi
               volumeMounts:
                 - name: config-volume
                   mountPath: /etc/java/trust/
