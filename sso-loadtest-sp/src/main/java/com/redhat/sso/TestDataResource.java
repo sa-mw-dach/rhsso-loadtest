@@ -61,6 +61,9 @@ public class TestDataResource {
 	Optional<String> password;
 	@ConfigProperty(name = "sso.loadusers.onstartup")
 	Optional<Boolean> loadUsersOnStartup;
+	@ConfigProperty(name = "quarkus.application.version")
+	Optional<String> appVersion;
+	
 	
 	@Inject
     @RestClient
@@ -251,5 +254,24 @@ public class TestDataResource {
     public int userCount() {
         return metrics.getUserCount();
     }
+	
+	@Gauge(name = "test.data.sso.version", unit = MetricUnits.NONE, description = "Version of RHSSSO")
+	public int getSsoVersion() throws IOException {
+		return obtainAccessTokenWithServiceAccount().map(r -> 
+		{
+			String verStr = apiResource.getServerInfo("bearer " + r.getAccessToken()).getSystemInfo().getVersion();
+			return versionStringToInteger(verStr);
+		}).orElse(-1);
+	}
+
+
+	private int versionStringToInteger(String verStr) {
+		return Integer.parseInt(String.valueOf(verStr.charAt(0)) + String.valueOf(verStr.charAt(2)) + String.valueOf(verStr.charAt(4)));
+	}
+	
+	@Gauge(name = "app.version", unit = MetricUnits.NONE, description = "Version of RHSSSO")
+	public int getAppVersion() {
+		return appVersion.map(this::versionStringToInteger).orElse(-1);
+	}
 	
 }

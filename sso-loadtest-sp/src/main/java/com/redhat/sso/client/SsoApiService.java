@@ -13,35 +13,40 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import org.keycloak.representations.info.ServerInfoRepresentation;
 
 import com.redhat.sso.client.model.SsoInitialAccessToken;
 import com.redhat.sso.client.model.SsoInitialAccessTokenCreate;
 import com.redhat.sso.client.model.SsoUser;
 
-@Path("/auth/admin/realms/loadtest")
+@Path("/auth")
 @RegisterRestClient(configKey = "sso")
 public interface SsoApiService {
 	
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
-	@Path("/users")
+	@Path("/admin/realms/loadtest/users")
 	CompletionStage<String> createUserAsync(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
 	
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
-	@Path("/users")
+	@Path("/admin/realms/loadtest/users")
 	String createUser(SsoUser user, @HeaderParam("Authorization") String authorizationHeader);
 
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
-	@Path("/users")
+	@Path("/admin/realms/loadtest/users")
 	List<SsoUser> getUsers(@QueryParam("briefRepresentation") boolean briefRepresentation, @QueryParam("max") long maxResults, @HeaderParam("Authorization") String authorizationHeader);
 
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
-	@Path("/clients-initial-access")
+	@Path("/admin/realms/loadtest/clients-initial-access")
 	SsoInitialAccessToken createInitialAccessToken(SsoInitialAccessTokenCreate config, @HeaderParam("Authorization") String authorizationHeader);
 
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	@Path("/admin/serverinfo")
+	ServerInfoRepresentation getServerInfo(@HeaderParam("Authorization") String authorizationHeader);
 }
