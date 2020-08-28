@@ -1,0 +1,36 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: fortio-operator-components
+  annotations:
+    tags: 'loadtest, performancetest, sso, keycloak'
+    description: >-
+      Template for creating all fortio resources based on the operator
+    iconClass: icon-sso
+    openshift.io/display-name: "RHSSO Grafana"
+    openshift.io/documentation-url: https://github.com/sa-mw-dach/rhsso-loadtest
+message: >-
+  The following build configs have been created in your project:
+objects:  
+  - apiVersion: fortio.verf.io/v1alpha1
+    kind: Server
+    metadata:
+      name: fortio-server
+    spec:
+      type: ClusterIP
+  - kind: Route
+    apiVersion: route.openshift.io/v1
+    metadata:
+      name: fortio-server
+      labels:
+        app: fortio-server
+    spec:
+      path: /fortio
+      to:
+        kind: Service
+        name: fortio-server
+        weight: 100
+      port:
+        targetPort: http
+      wildcardPolicy: None
+  

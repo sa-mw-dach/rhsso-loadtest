@@ -7,7 +7,7 @@ metadata:
     description: >-
       Template for creating all monitoring resources such as Prometheus and Grafana to monitor RHSSO
     iconClass: icon-sso
-    openshift.io/display-name: "RHSSO Monitoring"
+    openshift.io/display-name: "RHSSO Prometheus & Grafana"
     openshift.io/documentation-url: https://github.com/sa-mw-dach/rhsso-loadtest
 message: >-
   The following build configs have been created in your project:
