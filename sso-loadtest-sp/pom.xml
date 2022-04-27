@@ -18,7 +18,7 @@
 		<quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
 		<quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
 		<quarkus.platform.version>1.4.2.Final</quarkus.platform.version>
-		<keycloak.adapter.version>8.0.2</keycloak.adapter.version>
+		<keycloak.adapter.version>18.0.0</keycloak.adapter.version>
 		<surefire-plugin.version>2.22.1</surefire-plugin.version>
 	</properties>
 	<dependencyManagement>
